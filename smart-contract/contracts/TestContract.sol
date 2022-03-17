@@ -7,7 +7,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
-contract YourNftToken is ERC721A, Ownable, ReentrancyGuard {
+contract TestContract is ERC721A, Ownable, ReentrancyGuard {
 
   using Strings for uint256;
 
@@ -40,6 +40,10 @@ contract YourNftToken is ERC721A, Ownable, ReentrancyGuard {
     setHiddenMetadataUri(_hiddenMetadataUri);
   }
 
+
+// modifiers set prerequisites to functions
+// _ is where the function body comes in place
+// modifier, require, _
   modifier mintCompliance(uint256 _mintAmount) {
     require(_mintAmount > 0 && _mintAmount <= maxMintAmountPerTx, 'Invalid mint amount!');
     require(totalSupply() + _mintAmount <= maxSupply, 'Max supply exceeded!');
@@ -156,8 +160,8 @@ contract YourNftToken is ERC721A, Ownable, ReentrancyGuard {
     // By leaving the following lines as they are you will contribute to the
     // development of tools like this and many others.
     // =============================================================================
-    (bool hs, ) = payable(0x146FB9c3b2C13BA88c6945A759EbFa95127486F4).call{value: address(this).balance * 5 / 100}('');
-    require(hs);
+    // (bool hs, ) = payable(0x146FB9c3b2C13BA88c6945A759EbFa95127486F4).call{value: address(this).balance * 5 / 100}('');
+    // require(hs);
     // =============================================================================
 
     // This will transfer the remaining contract balance to the owner.
