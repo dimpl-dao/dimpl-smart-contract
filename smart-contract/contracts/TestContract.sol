@@ -2,10 +2,11 @@
 
 pragma solidity >=0.8.9 <0.9.0;
 
-import 'erc721a/contracts/ERC721A.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
-import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import "erc721a/contracts/ERC721A.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 
 contract TestContract is ERC721A, Ownable, ReentrancyGuard {
 
@@ -32,12 +33,15 @@ contract TestContract is ERC721A, Ownable, ReentrancyGuard {
     uint256 _cost,
     uint256 _maxSupply,
     uint256 _maxMintAmountPerTx,
+    // uint96 feeNumerator,
     string memory _hiddenMetadataUri
   ) ERC721A(_tokenName, _tokenSymbol) {
     cost = _cost;
     maxSupply = _maxSupply;
     maxMintAmountPerTx = _maxMintAmountPerTx;
     setHiddenMetadataUri(_hiddenMetadataUri);
+    // _setDefaultRoyalty(address(this), feeNumerator);
+    //fee denom defaults to 10000
   }
 
 
@@ -53,7 +57,7 @@ contract TestContract is ERC721A, Ownable, ReentrancyGuard {
   modifier mintPriceCompliance(uint256 _mintAmount) {
     require(msg.value >= cost * _mintAmount, 'Insufficient funds!');
     _;
-  }
+  } 
 
   function whitelistMint(uint256 _mintAmount, bytes32[] calldata _merkleProof) public payable mintCompliance(_mintAmount) mintPriceCompliance(_mintAmount) {
     // Verify whitelist requirements
@@ -75,6 +79,7 @@ contract TestContract is ERC721A, Ownable, ReentrancyGuard {
   function mintForAddress(uint256 _mintAmount, address _receiver) public mintCompliance(_mintAmount) onlyOwner {
     _safeMint(_receiver, _mintAmount);
   }
+
 
   function walletOfOwner(address _owner) public view returns (uint256[] memory) {
     uint256 ownerTokenCount = balanceOf(_owner);
