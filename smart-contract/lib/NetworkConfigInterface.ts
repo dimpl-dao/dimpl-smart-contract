@@ -4,4 +4,4 @@ export default interface NetworkConfigInterface {
     name: string;
     generateContractUrl: (contractAddress: string) => string;
   };
-};
+}

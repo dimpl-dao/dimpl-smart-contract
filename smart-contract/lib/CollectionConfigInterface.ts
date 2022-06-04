@@ -1,10 +1,10 @@
-import NetworkConfigInterface from '../lib/NetworkConfigInterface';
-import MarketplaceConfigInterface from '../lib/MarketplaceConfigInterface';
+import NetworkConfigInterface from "../lib/NetworkConfigInterface";
+import MarketplaceConfigInterface from "../lib/MarketplaceConfigInterface";
 
 interface SaleConfig {
   price: number;
   maxMintAmountPerTx: number;
-};
+}
 
 export default interface CollectionConfigInterface {
   testnet: NetworkConfigInterface;
@@ -17,8 +17,8 @@ export default interface CollectionConfigInterface {
   whitelistSale: SaleConfig;
   preSale: SaleConfig;
   publicSale: SaleConfig;
-  contractAddress: string|null;
+  contractAddress: string | null;
   whitelistAddresses: string[];
   marketplaceIdentifier: string;
-  marketplaceConfig: MarketplaceConfigInterface,
-};
+  marketplaceConfig: MarketplaceConfigInterface;
+}
