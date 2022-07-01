@@ -1,8 +1,6 @@
 import fs from "fs";
 import * as dotenv from "dotenv";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { MerkleTree } from "merkletreejs";
-import keccak256 from "keccak256";
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
@@ -21,60 +19,6 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
     console.log(account.address);
   }
 });
-
-task(
-  "generate-root-hash",
-  "Generates and prints out the root hash for the current whitelist",
-  async () => {
-    // Check configuration
-    if (CollectionConfig.whitelistAddresses.length < 1) {
-      throw new Error(
-        "The whitelist is empty, please add some addresses to the configuration."
-      );
-    }
-
-    // Build the Merkle Tree
-    const leafNodes = CollectionConfig.whitelistAddresses.map((addr) =>
-      keccak256(addr)
-    );
-    const merkleTree = new MerkleTree(leafNodes, keccak256, {
-      sortPairs: true,
-    });
-    const rootHash = "0x" + merkleTree.getRoot().toString("hex");
-
-    console.log(
-      "The Merkle Tree root hash for the current whitelist is: " + rootHash
-    );
-  }
-);
-
-task(
-  "generate-proof",
-  "Generates and prints out the whitelist proof for the given address (compatible with block explorers such as Etherscan)",
-  async (taskArgs: { address: string }) => {
-    // Check configuration
-    if (CollectionConfig.whitelistAddresses.length < 1) {
-      throw new Error(
-        "The whitelist is empty, please add some addresses to the configuration."
-      );
-    }
-
-    // Build the Merkle Tree
-    const leafNodes = CollectionConfig.whitelistAddresses.map((addr) =>
-      keccak256(addr)
-    );
-    const merkleTree = new MerkleTree(leafNodes, keccak256, {
-      sortPairs: true,
-    });
-    const proof = merkleTree
-      .getHexProof(keccak256(taskArgs.address))
-      .toString()
-      .replace(/'/g, "")
-      .replace(/ /g, "");
-
-    console.log("The whitelist proof for the given address is: " + proof);
-  }
-).addPositionalParam("address", "The public address");
 
 task(
   "rename-contract",
@@ -150,22 +94,38 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    truffle: {
-      url: "http://localhost:24012/rpc",
-      timeout: 60000,
+    hardhat: {},
+    cypress: {
+      url: process.env.CYPRESS_URL,
+      httpHeaders: {
+        Authorization:
+          "Basic " +
+          Buffer.from(
+            process.env.ACCESS_KEY_ID + ":" + process.env.SECRET_ACCESS_KEY
+          ).toString("base64"),
+        "x-chain-id": "8217",
+      },
+      accounts: [process.env.PUBLIC_ADDRESS || ""],
+      chainId: 8217,
+      gas: 8500000,
+    },
+    baobab: {
+      url: process.env.BAOBAB_URL,
+      httpHeaders: {
+        Authorization:
+          "Basic " +
+          Buffer.from(
+            process.env.ACCESS_KEY_ID + ":" + process.env.SECRET_ACCESS_KEY
+          ).toString("base64"),
+        "x-chain-id": "1001",
+      },
+      accounts: [process.env.PUBLIC_ADDRESS || ""],
+      chainId: 1001,
+      gas: 8500000,
     },
   },
-  gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
-    coinmarketcap: process.env.GAS_REPORTER_COIN_MARKET_CAP_API_KEY,
-  },
-  etherscan: {
-    apiKey: {
-      // Ethereum
-      rinkeby: process.env.BLOCK_EXPLORER_API_KEY,
-      mainnet: process.env.BLOCK_EXPLORER_API_KEY,
-    },
+  mocha: {
+    timeout: 100000,
   },
 };
 
@@ -173,7 +133,7 @@ const config: HardhatUserConfig = {
 if (process.env.NETWORK_TESTNET_URL !== undefined) {
   config.networks!.testnet = {
     url: process.env.NETWORK_TESTNET_URL,
-    accounts: [process.env.NETWORK_TESTNET_PRIVATE_KEY!],
+    accounts: [process.env.PRIVATE_KEY!],
   };
 }
 
@@ -181,7 +141,7 @@ if (process.env.NETWORK_TESTNET_URL !== undefined) {
 if (process.env.NETWORK_MAINNET_URL !== undefined) {
   config.networks!.mainnet = {
     url: process.env.NETWORK_MAINNET_URL,
-    accounts: [process.env.NETWORK_MAINNET_PRIVATE_KEY!],
+    accounts: [process.env.PRIVATE_KEY!],
   };
 }
 

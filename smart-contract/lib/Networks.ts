@@ -1,19 +1,19 @@
 import NetworkConfigInterface from "./NetworkConfigInterface";
 
-export const ethereumTestnet: NetworkConfigInterface = {
-  chainId: 4,
+export const klaytnTestnet: NetworkConfigInterface = {
+  chainId: 1001,
   blockExplorer: {
-    name: "Etherscan",
+    name: "Klayfinder",
     generateContractUrl: (contractAddress: string) =>
-      `https://rinkeby.etherscan.io/address/${contractAddress}`,
+      `https://baobab.klaytnfinder.io/account/${contractAddress}`,
   },
 };
 
-export const ethereumMainnet: NetworkConfigInterface = {
-  chainId: 1,
+export const klaytnMainnet: NetworkConfigInterface = {
+  chainId: 8217,
   blockExplorer: {
-    name: "Etherscan",
+    name: "Klayfinder",
     generateContractUrl: (contractAddress: string) =>
-      `https://etherscan.io/address/${contractAddress}`,
+      `https://klaytnfinder.io/account/${contractAddress}`,
   },
 };
