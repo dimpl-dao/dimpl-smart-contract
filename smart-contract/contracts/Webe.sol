@@ -41,7 +41,9 @@ contract Webe is Ownable, ERC721Enumerable {
 
     constructor(string memory _tokenName, string memory _tokenSymbol, string memory _hiddenBaseURI) ERC721(_tokenName, _tokenSymbol) {
         hiddenBaseURI = _hiddenBaseURI;
-        _teamMint(8, MintingStep.Initial);
+        for(uint tokenId = 1; tokenId < 9; tokenId++){
+            _mintWithBaseURIType(tokenId, msg.sender, MintingStep.Initial);
+        }
     }
     
     modifier onlyOwnerOf(uint _tokenId) {
@@ -90,9 +92,11 @@ contract Webe is Ownable, ERC721Enumerable {
             setMintingStep(MintingStep.Whitelist2);
         } else if(mintingStep == MintingStep.Whitelist2){
             require(totalSupply == POST_WHITELIST2_SUPPLY, "Incorrect state: totalSupply != POST_WHITELIST2_SUPPLY");
-            _teamMint(656, MintingStep.WhitelistPresale);
+            _teamMint(400, MintingStep.WhitelistPresale);
             setMintingStep(MintingStep.WhitelistPresale);
         } else if(mintingStep == MintingStep.WhitelistPresale){
+            require(totalSupply == POST_WHITELIST_PRESALE_SUPPLY, "Incorrect state: totalSupply != POST_WHITELIST_PRESALE_SUPPLY");
+            _teamMint(256, MintingStep.Public);
             setMintingStep(MintingStep.Public);
         } else if(mintingStep == MintingStep.Public){
             setMintingStep(MintingStep.Rebirth);
@@ -123,7 +127,7 @@ contract Webe is Ownable, ERC721Enumerable {
     }
 
     function whitelist(address _account) external onlyOwner {
-        require(isWhiteListed(_account), "Account is already whitelisted");
+        require(!isWhiteListed(_account), "Account is already whitelisted");
         addressState[_account].whitelisted = true;
     }
 
@@ -150,6 +154,11 @@ contract Webe is Ownable, ERC721Enumerable {
 
     function isWhiteListed(address _account) public view returns(bool) {
         return addressState[_account].whitelisted;
+    }
+
+    function teamMint(uint _quantity, MintingStep _baseURIType) external onlyOwner {
+        require(totalSupply() + _quantity <= MAX_SUPPLY, "Exceeds max supply!");
+        _teamMint(_quantity, _baseURIType);
     }
 
     function _teamMint(uint _quantity, MintingStep _baseURIType) internal {
