@@ -3,7 +3,6 @@
 // yarn rename-contract NEW_CONTRACT_NAME
 // Please DO NOT change it manually!
 import { TestContract as ContractType } from "../typechain/index";
-
 import { ethers } from "hardhat";
 import CollectionConfig from "./../config/CollectionConfig";
 

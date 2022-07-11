@@ -79,7 +79,7 @@ contract Webe is Ownable, ERC721Enumerable {
         }
     }
 
-    function nextStep(uint _salePrice) public onlyOwner {
+    function nextStep(uint _salePrice) external onlyOwner {
         uint totalSupply = totalSupply();
         setSalePrice(_salePrice);
         if(mintingStep == MintingStep.Initial){
@@ -99,6 +99,7 @@ contract Webe is Ownable, ERC721Enumerable {
             _teamMint(256, MintingStep.Public);
             setMintingStep(MintingStep.Public);
         } else if(mintingStep == MintingStep.Public){
+            require(totalSupply == MAX_SUPPLY, "Incorrect state: totalSupply != MAX_SUPPLY");
             setMintingStep(MintingStep.Rebirth);
         } else if(mintingStep == MintingStep.Rebirth){
             setMintingStep(MintingStep.Stable);
@@ -121,10 +122,10 @@ contract Webe is Ownable, ERC721Enumerable {
         hiddenBaseURI = _baseURI;
     }
 
-    function send(address _account) external onlyOwner {
-        (bool os, ) = payable(_account).call{value: address(this).balance}('');
-        require(os);
-    }
+    function withdrawAmount(address _account, uint256 amount) external onlyOwner {
+        require(amount <= address(this).balance);
+        payable(_account).transfer(amount);
+     }
 
     function whitelist(address _account) external onlyOwner {
         require(!isWhiteListed(_account), "Account is already whitelisted");
