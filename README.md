@@ -1,16 +1,10 @@
-# NFT ERC721 Rollout Scheme
+# Main Contracts
 
-An all-in-one solution for `ERC721` collections. Build, test and deploy your smart contract, together with a totally
-integrated DAPP within a simple yet powerful workspace.
+## Dimpl ERC20 
+Snapshot enabled governance tokens.
 
-## Disclaimer
+## Dimpl Escrow 
+Escrow that enables trustless transactions of items with klay.
 
-This project was created for educational purposes, please refer to the [LICENCE](LICENSE) file for further information.
-
-## Whitelist
-
-## PreSale
-
-## Public Sale
-
-## Reveal
+## Dimpl Governor 
+A decentralized forum that handles disputes, leveraging the Dimpl governace tokens.
