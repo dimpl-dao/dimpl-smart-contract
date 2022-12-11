@@ -7,9 +7,9 @@ import "./DimplERC20.sol";
 
 contract DimplGovernor is Ownable {
 
-  event ProposalCreated(uint256 proposalHash, uint256 listingHash, address proposer, uint256 snapshotId, uint128 nonce);
-  event ProposalExecuted(uint256 proposalHash, VoteType voteType);
-  event VoteCast(uint256 proposalHash, VoteType voteType, uint256 amount);
+  event ProposalCreated(uint256 listingHash, address proposer, uint256 snapshotId, uint128 nonce);
+  event ProposalExecuted(uint256 listingHash, VoteType voteType);
+  event VoteCast(uint256 listingHash, VoteType voteType, uint256 amount);
 
   enum VoteType {
       Against,
@@ -53,68 +53,65 @@ contract DimplGovernor is Ownable {
 
   function propose(uint256 listingHash, uint128 nonce) external returns (uint256) {
     DimplEscrow dimplEscrow = DimplEscrow(escrowContract);
-    (address seller, , , uint256 bidHash, uint128 bidSelectedBlock, uint128 remonstrableBlockInterval) = dimplEscrow.listings(listingHash);
+    (, address seller, , , uint256 bidHash, uint128 bidSelectedBlock, uint128 remonstrableBlockInterval) = dimplEscrow.listings(listingHash);
     require(seller == msg.sender);
     require(bidHash != uint256(0));
     require(block.number >= bidSelectedBlock + remonstrableBlockInterval);
-    uint256 proposalHash = hashProposal(listingHash, nonce);
-    require(proposals[proposalHash].proposer != address(0));
-    require(proposals[proposalHash].executed == false);
+    require(proposals[listingHash].proposer == address(0));
+    require(proposals[listingHash].executed == false);
 
+    dimplEscrow.setLocked(listingHash);
     uint256 snapshotId = DimplERC20(governanceTokenContract).snapshot();
-    proposals[proposalHash].proposer = msg.sender;
-    proposals[proposalHash].proposalCreatedBlock = uint128(block.number);
-    proposals[proposalHash].listingHash = listingHash;
-    proposals[proposalHash].snapshotId = snapshotId;
+    proposals[listingHash].proposer = msg.sender;
+    proposals[listingHash].proposalCreatedBlock = uint128(block.number);
+    proposals[listingHash].listingHash = listingHash;
+    proposals[listingHash].snapshotId = snapshotId;
 
-    emit ProposalCreated(proposalHash, listingHash, msg.sender, snapshotId, nonce);
+    emit ProposalCreated(listingHash, msg.sender, snapshotId, nonce);
 
-    return proposalHash;
+    return listingHash;
   }
 
-  function vote(uint256 proposalHash, VoteType voteType) external returns(uint256) {
-    require(proposals[proposalHash].executed == false);
-    require(proposals[proposalHash].hasVoted[msg.sender] == false);
-    require(proposals[proposalHash].proposalCreatedBlock + votingDelay < block.number);
-    require(proposals[proposalHash].proposalCreatedBlock + votingDelay + votingDuration >= block.number);
+  function vote(uint256 listingHash, VoteType voteType) external returns(uint256) {
+    require(proposals[listingHash].proposer != address(0));
+    require(proposals[listingHash].executed == false);
+    require(proposals[listingHash].hasVoted[msg.sender] == false);
+    require(proposals[listingHash].proposalCreatedBlock + votingDelay < block.number);
+    require(proposals[listingHash].proposalCreatedBlock + votingDelay + votingDuration >= block.number);
 
-    uint256 balance = balanceOfAt(msg.sender, proposalHash);
-    proposals[proposalHash].hasVoted[msg.sender] = true;
+    uint256 balance = balanceOfAt(msg.sender, listingHash);
+    proposals[listingHash].hasVoted[msg.sender] = true;
     if(voteType == VoteType.Against) {
-      proposals[proposalHash].againstVotes += balance;
+      proposals[listingHash].againstVotes += balance;
     } else {
-      proposals[proposalHash].forVotes += balance;
+      proposals[listingHash].forVotes += balance;
     }
 
-    emit VoteCast(proposalHash, voteType, balance);
+    emit VoteCast(listingHash, voteType, balance);
 
-    return voteType == VoteType.Against ? proposals[proposalHash].againstVotes : proposals[proposalHash].forVotes;
+    return voteType == VoteType.Against ? proposals[listingHash].againstVotes : proposals[listingHash].forVotes;
   }
 
-  function execute(uint256 proposalHash) external returns(VoteType) {
-    require(proposals[proposalHash].executed == false);
-    require(proposals[proposalHash].proposalCreatedBlock + votingDelay + votingDuration < block.number);
+  function execute(uint256 listingHash) external returns(VoteType) {
+    require(proposals[listingHash].proposer != address(0));
+    require(proposals[listingHash].executed == false);
+    require(proposals[listingHash].proposalCreatedBlock + votingDelay + votingDuration < block.number);
 
-    proposals[proposalHash].executed = true;
-    VoteType winner = proposals[proposalHash].forVotes > proposals[proposalHash].againstVotes ? VoteType.For : VoteType.Against;
+    proposals[listingHash].executed = true;
+    VoteType winner = proposals[listingHash].forVotes > proposals[listingHash].againstVotes ? VoteType.For : VoteType.Against;
     if(winner == VoteType.For) {
-      DimplEscrow(governanceTokenContract).forceCancelTransaction(proposals[proposalHash].listingHash);
+      DimplEscrow(governanceTokenContract).forceCancelTransaction(proposals[listingHash].listingHash);
     } else {
-      DimplEscrow(governanceTokenContract).forceApproveTransaction(proposals[proposalHash].listingHash);
+      DimplEscrow(governanceTokenContract).forceApproveTransaction(proposals[listingHash].listingHash);
     }
     
-    emit ProposalExecuted(proposalHash, winner);
+    emit ProposalExecuted(listingHash, winner);
 
     return winner;
   }
 
-  function balanceOfAt(address account, uint256 proposalHash) public view returns(uint256) {
-    return DimplERC20(governanceTokenContract).balanceOfAt(account, proposals[proposalHash].snapshotId);
+  function balanceOfAt(address account, uint256 listingHash) public view returns(uint256) {
+    return DimplERC20(governanceTokenContract).balanceOfAt(account, proposals[listingHash].snapshotId);
   }
-
-  function hashProposal(uint256 listingHash, uint128 nonce) public pure returns (uint256) {
-    return uint256(keccak256(abi.encode(listingHash, nonce)));
-  }
-
 
 }

@@ -95,8 +95,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {},
-    cypress: {
-      url: process.env.CYPRESS_URL,
+    main: {
+      url: process.env.NETWORK_MAINNET_URL,
       httpHeaders: {
         Authorization:
           "Basic " +
@@ -105,12 +105,12 @@ const config: HardhatUserConfig = {
           ).toString("base64"),
         "x-chain-id": "8217",
       },
-      accounts: [process.env.PUBLIC_ADDRESS || ""],
+      accounts: [process.env.PRIVATE_KEY || ""],
       chainId: 8217,
       gas: 8500000,
     },
     baobab: {
-      url: process.env.BAOBAB_URL,
+      url: process.env.NETWORK_TESTNET_URL,
       httpHeaders: {
         Authorization:
           "Basic " +
@@ -119,7 +119,7 @@ const config: HardhatUserConfig = {
           ).toString("base64"),
         "x-chain-id": "1001",
       },
-      accounts: [process.env.PUBLIC_ADDRESS || ""],
+      accounts: [process.env.PRIVATE_KEY || ""],
       chainId: 1001,
       gas: 8500000,
     },
@@ -131,7 +131,7 @@ const config: HardhatUserConfig = {
 
 // Setup "testnet" network
 if (process.env.NETWORK_TESTNET_URL !== undefined) {
-  config.networks!.testnet = {
+  config.networks!.baobab = {
     url: process.env.NETWORK_TESTNET_URL,
     accounts: [process.env.PRIVATE_KEY!],
   };
@@ -139,7 +139,7 @@ if (process.env.NETWORK_TESTNET_URL !== undefined) {
 
 // Setup "mainnet" network
 if (process.env.NETWORK_MAINNET_URL !== undefined) {
-  config.networks!.mainnet = {
+  config.networks!.cypress = {
     url: process.env.NETWORK_MAINNET_URL,
     accounts: [process.env.PRIVATE_KEY!],
   };

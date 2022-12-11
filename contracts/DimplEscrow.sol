@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (utils/escrow/Escrow.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -13,8 +13,8 @@ contract DimplEscrow is Ownable {
     using Address for address payable;
     using Timers for Timers.BlockNumber;
 
-    event BidCreated(uint256 bidHash, address buyer, uint256 depositInPeb, uint256 listingHash, uint128 nonce);
-    event ListingCreated(uint256 listingHash, address seller, uint256 depositInPeb, uint256 priceInPeb, uint128 nonce);
+    event BidCreated(uint256 bidHash, address buyer, uint256 depositInPeb, uint256 listingHash, uint128 bidCreatedBlock, uint128 nonce);
+    event ListingCreated(uint256 listingHash, address seller, uint256 depositInPeb, uint256 priceInPeb, uint128 remonstrableBlockInterval, uint128 nonce);
     event BidCanceled(uint256 bidHash);
     event ListingCanceled(uint256 listingHash);
     event BidSelected(uint256 bidHash);
@@ -23,6 +23,7 @@ contract DimplEscrow is Ownable {
     event TransactionApproved(uint256 listingHash);
 
     struct Listing {
+        bool locked;
         address seller;
         uint256 depositInPeb;
         uint256 priceInPeb;
@@ -47,6 +48,7 @@ contract DimplEscrow is Ownable {
     uint16 public bidMinDepositBasisPts = 300;
     uint256 public transactionFeeBasisPts = 30;
     uint256 public blockToWeek = 604800;
+    uint256 public proposableLimit = 259200;
 
     modifier ifNotTransacting(uint256 listingHash) {
         require(listings[listingHash].bidHash == 0);
@@ -61,6 +63,11 @@ contract DimplEscrow is Ownable {
     constructor(address _governanceTokenContract){
         governanceTokenContract = _governanceTokenContract;
         bids[0].buyer = msg.sender; // listings with bidHash of 0 are regarded as not transacting -> initialize to avoid a bidding with a hash of 0
+    }
+
+    function setLocked(uint256 listingHash) external onlyOwner {
+        require(listings[listingHash].seller != address(0));
+        listings[listingHash].locked = true;
     }
 
     function setListingMinDepositBasisPts(uint16 _listingMinDepositBasisPts) external onlyOwner {
@@ -81,6 +88,16 @@ contract DimplEscrow is Ownable {
         blockToWeek = _blockToWeek;
     }
 
+    function getListing(address account, uint256 deposit, uint256 priceInPeb, uint128 nonce, uint128 remonstrableBlockInterval) external view returns(Listing memory) {
+        uint256 listingHash = _hashListing(account, deposit, priceInPeb, nonce, remonstrableBlockInterval);
+        return listings[listingHash];
+    }
+
+    function getBid(address account, uint256 deposit, uint256 listingHash, uint128 nonce) external view returns(Bid memory) {
+        uint256 bidHash = _hashBid(account, deposit, listingHash, nonce);
+        return bids[bidHash];
+    }
+
     function callDimpleERC20(bytes calldata _calldata) external payable onlyOwner returns (bytes memory) {
         (bool success, bytes memory returndata) = governanceTokenContract.call{value: msg.value}(_calldata);
         return Address.verifyCallResult(success, returndata, "callDimpleERC20 reverted");
@@ -89,28 +106,30 @@ contract DimplEscrow is Ownable {
     function list(uint256 priceInPeb, uint128 nonce, uint128 remonstrableBlockInterval) external payable returns (uint256) {
         require(priceInPeb > 0);
         require(_getBasisPts(msg.value, priceInPeb) >= listingMinDepositBasisPts);
-        uint256 listingHash = _hashListing(msg.sender, msg.value, priceInPeb, nonce);
+        uint256 listingHash = _hashListing(msg.sender, msg.value, priceInPeb, nonce, remonstrableBlockInterval);
         require(listings[listingHash].seller == address(0x0));
+        require(listings[listingHash].priceInPeb == 0);
 
-        listings[listingHash] = Listing(msg.sender, msg.value, priceInPeb, 0, 0, remonstrableBlockInterval, new uint256[](0));
+        listings[listingHash] = Listing(false, msg.sender, msg.value, priceInPeb, 0, 0, remonstrableBlockInterval, new uint256[](0));
 
-        emit ListingCreated(listingHash, msg.sender, msg.value, priceInPeb, nonce);
+        emit ListingCreated(listingHash, msg.sender, msg.value, priceInPeb, remonstrableBlockInterval, nonce);
 
         return listingHash;
     }
 
-    function bid(uint256 depositInPeb, uint256 listingHash, uint128 nonce) external payable ifNotTransacting(listingHash) returns (uint256) {
+    function bid(uint256 listingHash, uint128 nonce) external payable ifNotTransacting(listingHash) returns (uint256) {
         require(listings[listingHash].seller != address(0));
-        require(msg.value >= depositInPeb + listings[listingHash].priceInPeb);
+        require(msg.value >= listings[listingHash].priceInPeb);
+        uint256 depositInPeb = msg.value - listings[listingHash].priceInPeb;
         require(listings[listingHash].priceInPeb > 0);
         require(_getBasisPts(depositInPeb, listings[listingHash].priceInPeb) >= bidMinDepositBasisPts);
-        uint256 bidHash = _hashBid(msg.sender, depositInPeb, listingHash);
+        uint256 bidHash = _hashBid(msg.sender, depositInPeb, listingHash, nonce);
         require(bids[bidHash].buyer == address(0));
 
         bids[bidHash] = Bid(msg.sender, uint128(block.number), depositInPeb, listingHash);
         listings[listingHash].bidHashes.push(bidHash);
 
-        emit BidCreated(bidHash, msg.sender, depositInPeb, listingHash, nonce);
+        emit BidCreated(bidHash, msg.sender, depositInPeb, listingHash, uint128(block.number), nonce);
 
         return bidHash;
     }
@@ -142,6 +161,9 @@ contract DimplEscrow is Ownable {
     }
 
     function forceCancelTransaction(uint256 listingHash) external onlyOwner onlyTransacting(listingHash) returns (uint256) {
+        require(listings[listingHash].bidHash != 0);
+        require(listings[listingHash].seller != address(0));
+
         listings[listingHash].seller = address(0);
         _setNotTransacting(listingHash);
         uint16 minDepositBasisPts = bidMinDepositBasisPts > listingMinDepositBasisPts ? listingMinDepositBasisPts : bidMinDepositBasisPts;
@@ -158,7 +180,11 @@ contract DimplEscrow is Ownable {
         return listingHash;
     }
 
-    function forceApproveTransaction(uint256 listingHash) external onlyOwner onlyTransacting(listingHash) returns (uint256) {
+    function forceApproveTransaction(uint256 listingHash) external  onlyTransacting(listingHash) returns (uint256) {
+        require(listings[listingHash].bidHash != 0);
+        require(listings[listingHash].seller != address(0));
+        require(msg.sender == owner() || (!listings[listingHash].locked && (proposableLimit + listings[listingHash].remonstrableBlockInterval + listings[listingHash].bidSelectedBlock < block.number)));
+
         bids[listings[listingHash].bidHash].buyer = address(0);
         _setNotTransacting(listingHash);
         uint16 minDepositBasisPts = bidMinDepositBasisPts > listingMinDepositBasisPts ? listingMinDepositBasisPts : bidMinDepositBasisPts;
@@ -176,6 +202,7 @@ contract DimplEscrow is Ownable {
     }
 
     function approveTransaction(uint256 listingHash) external onlyTransacting(listingHash) returns (uint256) {
+        require(listings[listingHash].locked == false);
         require(bids[listings[listingHash].bidHash].buyer == msg.sender);
 
         bids[listings[listingHash].bidHash].buyer = address(0);
@@ -252,12 +279,12 @@ contract DimplEscrow is Ownable {
         return uint16(numerator * 10000 / denominator);
     }
 
-    function _hashBid(address _account, uint256 _depositInPeb, uint256 _listingHash) internal pure returns (uint256) {
-        return uint256(keccak256(abi.encode(_account, _depositInPeb, _listingHash)));
+    function _hashBid(address _account, uint256 _depositInPeb, uint256 _listingHash, uint128 _nonce) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encode(_account, _depositInPeb, _listingHash, _nonce)));
     }
 
-    function _hashListing(address _account, uint256 _depositInPeb, uint256 _priceInPeb, uint128 _nonce) internal pure returns (uint256) {
-        return uint256(keccak256(abi.encode(_account, _depositInPeb, _priceInPeb, _nonce)));
+    function _hashListing(address _account, uint256 _depositInPeb, uint256 _priceInPeb, uint128 _nonce, uint128 remonstrableBlockInterval) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encode(_account, _depositInPeb, _priceInPeb, _nonce, remonstrableBlockInterval)));
     }
 
 }

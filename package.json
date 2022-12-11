@@ -42,7 +42,7 @@
   "scripts": {
     "accounts": "hardhat accounts",
     "rename-contract": "hardhat rename-contract",
-    "compile": "hardhat compile --force",
+    "compile": "hardhat compile --force && hardhat run scripts/0_compile.ts",
     "test": "hardhat test",
     "test-extended": "EXTENDED_TESTS=1 hardhat test",
     "test-gas": "REPORT_GAS=1 hardhat test",
